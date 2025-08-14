@@ -1,6 +1,6 @@
 # Metabolic Disorder Risk Calculator
 
-A comprehensive web application for healthcare professionals to assess metabolic disorder risk in patients using validated medical formulas and AI-powered recommendations.
+A comprehensive web application for healthcare professionals to assess metabolic disorder risk in patients using validated medical formulas and AI-powered recommendations. **Now with Google Sheets integration for seamless data management!**
 
 ## Features
 
@@ -20,85 +20,88 @@ A comprehensive web application for healthcare professionals to assess metabolic
 - **Moderate Risk**: TyG Index 8.0-8.5 (Yellow)
 - **High Risk**: TyG Index > 8.5 (Red)
 
-### 💾 Data Management
-- **Secure Storage**: Patient records stored in Supabase database
-- **Patient List**: View and filter all patient records
-- **Export Functionality**: Download individual or bulk patient data as CSV
+### 💾 Data Management with Google Sheets
+- **Google Sheets Integration**: Patient records automatically saved to your Google Sheet
+- **Real-time Sync**: Data immediately appears in your spreadsheet
+- **Color-coded Risk Levels**: Automatic highlighting based on risk assessment
+- **Export Functionality**: Download individual patient reports as PDF
 - **Search & Filter**: Quick patient lookup capabilities
+- **No Database Setup**: Simple integration without complex database configuration
 
-### 🔐 Security & Authentication
-- **Healthcare Staff Login**: Email/password authentication
-- **Row Level Security**: Secure data access controls
-- **API Key Protection**: Secure handling of external API credentials
+### 🔐 Security & Data Privacy
+- **Your Data, Your Control**: All patient data stored in your personal Google Sheet
+- **No Third-party Storage**: Direct integration with your Google Workspace
+- **HIPAA Compliance Ready**: Use Google Workspace Business plans for compliance requirements
 
 ## Technology Stack
 
 - **Frontend**: HTML5, TailwindCSS, Vanilla JavaScript
-- **Backend**: Supabase (PostgreSQL database, Authentication, Row Level Security)
+- **Data Storage**: Google Sheets with Google Apps Script API
 - **AI Integration**: OpenAI GPT-3.5-turbo for health recommendations
+- **Visualization**: Canvas-based advanced gauge charts
+- **Export**: jsPDF for professional PDF reports
 - **Deployment**: Compatible with Netlify, Vercel, GitHub Pages
 
-## Setup Instructions
+## Quick Setup
 
-### 1. Database Setup (Supabase)
+### 1. Google Sheets Setup (5 minutes)
 
-1. Create a new Supabase project at [supabase.com](https://supabase.com)
-2. Run the SQL migration in `supabase/migrations/create_patient_records.sql`
-3. Get your project URL and anon key from Settings > API
+**Follow the detailed guide in `GOOGLE_SHEETS_SETUP.md`**
 
-### 2. OpenAI Setup
+Quick steps:
+1. Create a new Google Sheet
+2. Go to Extensions > Apps Script
+3. Paste the code from `/app/google-apps-script.js`
+4. Deploy as web app with "Anyone" access
+5. Copy the deployment URL
 
-1. Create an OpenAI account at [openai.com](https://openai.com)
-2. Generate an API key from the API section
-3. Ensure you have credits available for API calls
+### 2. Configure Your Application
 
-### 3. Configuration
-
-Update the configuration variables in `script.js`:
+Update `/app/script.js` with your Google Apps Script URL:
 
 ```javascript
-const SUPABASE_URL = 'your-supabase-project-url';
-const SUPABASE_ANON_KEY = 'your-supabase-anon-key';
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec';
+```
+
+### 3. Optional: OpenAI Setup
+
+For AI-powered recommendations, add your OpenAI API key:
+
+```javascript
 const OPENAI_API_KEY = 'your-openai-api-key';
 ```
 
-### 4. Authentication Setup
+### 4. Run the Application
 
-In your Supabase dashboard:
-1. Go to Authentication > Settings
-2. Disable email confirmation for faster testing
-3. Add healthcare staff users manually or enable sign-up
+```bash
+npm install
+npm run dev
+```
 
-### 5. Deployment
-
-#### Netlify
-1. Connect your GitHub repository
-2. Set build command: `npm run build` (if using build process)
-3. Set publish directory: `/` (for static files)
-4. Add environment variables in Netlify dashboard
-
-#### Vercel
-1. Import project from GitHub
-2. Configure environment variables
-3. Deploy automatically
-
-#### GitHub Pages
-1. Enable GitHub Pages in repository settings
-2. Use GitHub Actions for deployment with environment variables
+Open http://localhost:3000
 
 ## Usage Guide
 
 ### For Healthcare Professionals
 
-1. **Login**: Use your healthcare credentials to access the system
-2. **Patient Assessment**:
+1. **Patient Assessment**:
    - Fill in patient information form
    - Review real-time calculations
    - Analyze risk categorization
    - Read AI-generated recommendations
-3. **Save Results**: Store patient records for future reference
-4. **Export Data**: Download individual or bulk patient reports
-5. **Patient Management**: View and search through patient history
+
+2. **Save Results**: Patient records automatically saved to your Google Sheet
+
+3. **Patient Management**: 
+   - View all patients in the application
+   - Search and filter patient records
+   - Export individual patient reports as PDF
+
+4. **Google Sheets Benefits**:
+   - Access data from anywhere
+   - Create custom reports and charts
+   - Share with colleagues (with proper permissions)
+   - Backup and version control through Google Drive
 
 ### Medical Formulas Reference
 
@@ -118,13 +121,41 @@ In your Supabase dashboard:
 - Borderline: 2.0-3.5
 - High risk: > 3.5
 
-## Security Features
+## Advanced Features
 
-- **Row Level Security**: Database-level access controls
-- **Authentication Required**: All data operations require login
-- **API Key Protection**: Secure handling of external service credentials
-- **Input Validation**: Comprehensive form validation and sanitization
-- **HTTPS Only**: Secure data transmission
+### 📈 Visual Analytics
+- **Advanced Gauge Charts**: Real-time risk visualization
+- **Color-coded Metrics**: Instant visual feedback
+- **Professional UI**: Healthcare-grade interface design
+
+### 📄 Professional Reports
+- **PDF Export**: Comprehensive patient assessment reports
+- **Medical Formatting**: Professional medical document layout
+- **Reference Values**: Integrated clinical guidelines
+
+### 🤖 AI Integration
+- **Personalized Recommendations**: OpenAI-powered health advice
+- **Clinical Context**: Recommendations based on all patient metrics
+- **Professional Tone**: Medical-grade language and suggestions
+
+## Google Sheets Integration Benefits
+
+### ✅ Advantages over Traditional Databases:
+- **No Setup Required**: No database configuration or hosting
+- **Familiar Interface**: Everyone knows how to use spreadsheets
+- **Built-in Analytics**: Use Google Sheets' powerful analysis tools
+- **Easy Sharing**: Control access with Google's permission system
+- **Automatic Backup**: Google Drive handles backups and version history
+- **Free to Use**: No database hosting costs
+- **Scalable**: Handles thousands of patient records efficiently
+
+### 📊 What You Get in Your Google Sheet:
+- **Organized Data**: Properly formatted columns and headers
+- **Color Coding**: Risk levels automatically highlighted
+- **Sortable Data**: Click column headers to sort
+- **Filtering**: Use Google Sheets' built-in filters
+- **Charts**: Create custom charts and graphs
+- **Export Options**: Download as Excel, CSV, PDF
 
 ## Development
 
@@ -140,21 +171,27 @@ npm run dev
 ### Code Structure
 ```
 ├── index.html          # Main application interface
-├── script.js           # Application logic and API integrations
-├── styles.css          # Custom styles (if needed)
-├── supabase/
-│   └── migrations/     # Database schema
+├── script.js           # Application logic and Google Sheets integration
+├── styles.css          # Custom styles
+├── google-apps-script.js    # Google Apps Script backend code
+├── GOOGLE_SHEETS_SETUP.md   # Detailed setup instructions
 └── README.md          # Documentation
 ```
 
 ### Key Functions
+- `saveToGoogleSheets()`: Saves patient data to Google Sheets
+- `loadFromGoogleSheets()`: Retrieves patient records
 - `calculateMetrics()`: Performs medical calculations
 - `categorizeRisk()`: Determines risk level based on TyG Index
 - `generateAIRecommendations()`: Integrates with OpenAI for advice
-- `saveResults()`: Stores patient data in database
-- `loadPatients()`: Retrieves patient records
 
 ## API Integration
+
+### Google Sheets API Endpoints
+- `POST`: Save new patient record
+- `GET`: Retrieve all patient records
+- Automatic data validation and formatting
+- Error handling and fallback to localStorage
 
 ### OpenAI Integration
 The application uses OpenAI's GPT-3.5-turbo model to generate personalized health recommendations based on:
@@ -162,11 +199,6 @@ The application uses OpenAI's GPT-3.5-turbo model to generate personalized healt
 - Calculated metabolic markers
 - Risk assessment results
 - Medical best practices
-
-### Supabase Integration
-- **Authentication**: Email/password login for healthcare staff
-- **Database**: PostgreSQL with Row Level Security
-- **Real-time**: Automatic updates when data changes
 
 ## Compliance & Medical Disclaimer
 
@@ -178,10 +210,33 @@ This tool is designed for healthcare professionals and should be used as a suppl
 - Should not replace clinical judgment
 - Ensure compliance with local healthcare regulations (HIPAA, GDPR, etc.)
 
+### HIPAA Compliance with Google Sheets
+- Use Google Workspace Business plans for HIPAA compliance
+- Enable 2-factor authentication
+- Control access permissions carefully
+- Consider using Google Workspace's advanced security features
+
+## Deployment Options
+
+### Netlify
+1. Connect your GitHub repository
+2. Build settings: `npm run build` (if using build process)
+3. Publish directory: `/`
+4. Add environment variables for API keys
+
+### Vercel
+1. Import project from GitHub
+2. Configure environment variables
+3. Deploy automatically
+
+### GitHub Pages
+1. Enable GitHub Pages in repository settings
+2. Use GitHub Actions for deployment
+
 ## Support & Maintenance
 
 ### Updating Medical Formulas
-Medical calculations are modularized in the `calculateMetrics()` function for easy updates:
+Medical calculations are modularized for easy updates:
 
 ```javascript
 function calculateMetrics(data) {
@@ -195,8 +250,30 @@ function calculateMetrics(data) {
 ```
 
 ### Adding New Risk Factors
-Extend the risk categorization by modifying the `categorizeRisk()` function and updating the database schema as needed.
+Extend the risk categorization by modifying the `categorizeRisk()` function and updating both the application and Google Apps Script.
+
+### Troubleshooting
+See `GOOGLE_SHEETS_SETUP.md` for detailed troubleshooting guide.
 
 ## License
 
 This project is intended for healthcare use. Please ensure compliance with local medical software regulations and data protection laws.
+
+---
+
+## What's New in This Version
+
+### ✨ Google Sheets Integration
+- **Removed Supabase dependency** - No more complex database setup
+- **Direct Google Sheets integration** - Your data stays in your Google account
+- **Simplified deployment** - Just configure one Google Apps Script URL
+- **Better data control** - Full ownership of your patient data
+- **Enhanced privacy** - No third-party database storage
+
+### 🚀 Quick Start
+1. Follow `GOOGLE_SHEETS_SETUP.md` (5-minute setup)
+2. Update the Google Sheets URL in `script.js`
+3. Run `npm run dev`
+4. Start assessing patients!
+
+Ready to transform your metabolic risk assessments with the power of Google Sheets? Get started in minutes!
