@@ -2,7 +2,7 @@
 // Libraries will be loaded via CDN in HTML
 
 // Configuration
-const OPENAI_API_KEY = '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';
+const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY';
 const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwEvFs88l76BoRZQByL4PUaMgFrgwYu8BvIilHKhsmcJwgo0tsmUqCk-k_alVvaC-ZX/exec';
 
 // Current user for demo purposes
@@ -96,12 +96,26 @@ function getFormData() {
 
 function validateFormData(data) {
     const required = ['fullName', 'age', 'gender', 'weight', 'height', 'glucose', 'triglycerides', 'hdl', 'hba1c', 'diabetes'];
-    return required.every(field => {
+    const missing = [];
+    
+    for (const field of required) {
         if (field === 'fullName' || field === 'gender' || field === 'diabetes') {
-            return data[field] !== '' && data[field] !== null;
+            if (!data[field] || data[field].trim() === '') {
+                missing.push(field);
+            }
+        } else {
+            if (data[field] === '' || data[field] === null || isNaN(data[field]) || data[field] <= 0) {
+                missing.push(field);
+            }
         }
-        return data[field] !== '' && data[field] !== null && !isNaN(data[field]);
-    });
+    }
+    
+    if (missing.length > 0) {
+        console.warn('Missing or invalid fields:', missing);
+        return false;
+    }
+    
+    return true;
 }
 
 function calculateMetrics(data) {
@@ -344,7 +358,7 @@ async function generateAIRecommendations(formData, calculations, riskCategory) {
     try {
         let recommendations;
         
-        if (OPENAI_API_KEY && OPENAI_API_KEY !== 'YOUR_OPENAI_API_KEY') {
+        if (OPENAI_API_KEY !== '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') {
             // Use OpenAI API
             recommendations = await getOpenAIRecommendations(formData, calculations, riskCategory);
         } else {
@@ -896,6 +910,10 @@ function debounce(func, wait) {
 
 // Global functions for patient management
 window.viewPatient = function(id) {
+    showToast('Patient details view - Feature available in full version', 'info');
+};
+
+window.exportPatient = function(id) {
     const records = JSON.parse(localStorage.getItem('patientRecords') || '[]');
     const record = records.find(r => r.id === id);
     
@@ -912,40 +930,59 @@ window.viewPatient = function(id) {
         document.getElementById('hba1c').value = record.hba1c;
         document.getElementById('diabetes').value = record.diabetes;
         
-        // Trigger calculation
-        const formData = getFormData();
-        const calculations = calculateMetrics(formData);
-        const riskCategory = categorizeRisk(calculations.tygIndex);
-        
-        displayResults(calculations, riskCategory);
-        createAdvancedGauges(calculations, riskCategory);
-        
-        // Switch to calculator tab
-        showSection('calculator');
-        
-        showToast('Patient data loaded successfully', 'success');
+        // Wait a moment for form to update, then export
+        setTimeout(() => {
+            exportPdfResults();
+        }, 100);
     } else {
         showToast('Patient record not found', 'error');
     }
 };
 
-window.exportPatient = function(id) {
-    const records = JSON.parse(localStorage.getItem('patientRecords') || '[]');
-    const record = records.find(r => r.id === id);
-    
-    if (record) {
-        // Set form data and export as PDF
-        document.getElementById('fullName').value = record.fullName;
-        document.getElementById('age').value = record.age;
-        document.getElementById('gender').value = record.gender;
-        document.getElementById('weight').value = record.weight;
-        document.getElementById('height').value = record.height;
-        document.getElementById('glucose').value = record.glucose;
-        document.getElementById('triglycerides').value = record.triglycerides;
-        document.getElementById('hdl').value = record.hdl;
-        document.getElementById('hba1c').value = record.hba1c;
-        document.getElementById('diabetes').value = record.diabetes;
-        
-        exportPdfResults();
+// Add error handling for missing elements
+function safeGetElement(id) {
+    const element = document.getElementById(id);
+    if (!element) {
+        console.warn(`Element with id '${id}' not found`);
     }
-};
+    return element;
+}
+
+// Add window error handler
+window.addEventListener('error', function(e) {
+    console.error('Global error:', e.error);
+    showToast('An error occurred. Please check the console for details.', 'error');
+});
+
+// Add unhandled promise rejection handler
+window.addEventListener('unhandledrejection', function(e) {
+    console.error('Unhandled promise rejection:', e.reason);
+    showToast('An error occurred with data processing.', 'error');
+});
+
+// Ensure all required elements exist on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const requiredElements = [
+        'calculatorTab', 'patientsTab', 'calculatorSection', 'patientsSection',
+        'patientForm', 'clearForm', 'saveResults', 'exportPdfResults',
+        'searchPatients', 'syncToSheetsBtn', 'resultsContainer',
+        'bmiValue', 'tygValue', 'ratioValue', 'riskCategory', 'riskLevel', 'riskDescription',
+        'aiRecommendations', 'gaugeChartsContainer', 'toast', 'toastIcon', 'toastMessage'
+    ];
+    
+    const missingElements = requiredElements.filter(id => !document.getElementById(id));
+    
+    if (missingElements.length > 0) {
+        console.warn('Missing required elements:', missingElements);
+    }
+    
+    // Initialize the application only if critical elements exist
+    if (document.getElementById('patientForm') && document.getElementById('calculatorTab')) {
+        initializeApp();
+        setupEventListeners();
+        loadPatients();
+    } else {
+        console.error('Critical elements missing. Application cannot initialize.');
+        showToast('Application initialization failed. Please refresh the page.', 'error');
+    }
+});
