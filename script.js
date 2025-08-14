@@ -1,17 +1,13 @@
-// Import Supabase client
-import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js';
+// Import libraries
 import jsPDF from 'https://cdn.skypack.dev/jspdf';
 import html2canvas from 'https://cdn.skypack.dev/html2canvas';
 
 // Configuration
-const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
 const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY';
-const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwEvFs88l76BoRZQByL4PUaMgFrgwYu8BvIilHKhsmcJwgo0tsmUqCk-k_alVvaC-ZX/exec';
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/YOUR_GOOGLE_APPS_SCRIPT_ID/exec';
 
-// Initialize Supabase client
-let supabase = null;
-let currentUser = { email: 'demo@healthcare.com', id: 'demo-user' }; // Demo user for non-auth mode
+// Current user for demo purposes
+let currentUser = { email: 'demo@healthcare.com', id: 'demo-user' };
 
 // Initialize the application
 document.addEventListener('DOMContentLoaded', function() {
@@ -21,10 +17,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeApp() {
-    // Initialize Supabase if credentials are provided
-    if (SUPABASE_URL !== 'YOUR_SUPABASE_URL' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY') {
-        supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    }
+    console.log('Metabolic Risk Calculator initialized');
+    showToast('Application loaded successfully', 'success');
 }
 
 function setupEventListeners() {
@@ -42,7 +36,7 @@ function setupEventListeners() {
     
     // Patient management
     document.getElementById('searchPatients').addEventListener('input', filterPatients);
-    document.getElementById('syncToGoogleSheets').addEventListener('click', syncToGoogleSheets);
+    document.getElementById('exportAllBtn').addEventListener('click', exportAllToSheets);
     
     // Real-time calculation
     const inputs = ['weight', 'height', 'glucose', 'triglycerides', 'hdl'];
@@ -103,7 +97,12 @@ function getFormData() {
 
 function validateFormData(data) {
     const required = ['fullName', 'age', 'gender', 'weight', 'height', 'glucose', 'triglycerides', 'hdl', 'hba1c', 'diabetes'];
-    return required.every(field => data[field] !== '' && data[field] !== null && !isNaN(data[field]) || field === 'fullName' || field === 'gender' || field === 'diabetes');
+    return required.every(field => {
+        if (field === 'fullName' || field === 'gender' || field === 'diabetes') {
+            return data[field] !== '' && data[field] !== null;
+        }
+        return data[field] !== '' && data[field] !== null && !isNaN(data[field]);
+    });
 }
 
 function calculateMetrics(data) {
@@ -456,95 +455,218 @@ async function saveResults() {
     const aiRecommendations = document.getElementById('aiRecommendations').innerHTML;
     
     const patientRecord = {
-        ...formData,
-        ...calculations,
-        risk_level: riskCategory.level,
-        risk_description: riskCategory.description,
-        ai_recommendations: aiRecommendations,
-        created_at: new Date().toISOString(),
-        created_by: currentUser.email
+        id: Date.now().toString(),
+        fullName: formData.fullName,
+        age: formData.age,
+        gender: formData.gender,
+        weight: formData.weight,
+        height: formData.height,
+        glucose: formData.glucose,
+        triglycerides: formData.triglycerides,
+        hdl: formData.hdl,
+        hba1c: formData.hba1c,
+        diabetes: formData.diabetes,
+        bmi: calculations.bmi,
+        tygIndex: calculations.tygIndex,
+        tgHdlRatio: calculations.tgHdlRatio,
+        riskLevel: riskCategory.level,
+        riskDescription: riskCategory.description,
+        aiRecommendations: aiRecommendations.replace(/<[^>]*>/g, ''), // Strip HTML for sheets
+        createdAt: new Date().toISOString(),
+        createdBy: currentUser.email
     };
     
     try {
-        if (supabase) {
-            const { error } = await supabase
-                .from('patient_records')
-                .insert([patientRecord]);
-            
-            if (error) throw error;
-        } else {
-            // Save to localStorage for demo
-            const records = JSON.parse(localStorage.getItem('patientRecords') || '[]');
-            records.push({ ...patientRecord, id: Date.now() });
-            localStorage.setItem('patientRecords', JSON.stringify(records));
-        }
+        // Save to Google Sheets
+        await saveToGoogleSheets(patientRecord);
         
-        showToast('Patient record saved successfully', 'success');
+        // Also save to localStorage as backup
+        const records = JSON.parse(localStorage.getItem('patientRecords') || '[]');
+        records.push(patientRecord);
+        localStorage.setItem('patientRecords', JSON.stringify(records));
+        
+        showToast('Patient record saved successfully to Google Sheets', 'success');
         loadPatients();
     } catch (error) {
         console.error('Error saving record:', error);
         showToast('Error saving record: ' + error.message, 'error');
+        
+        // Fallback to localStorage if Google Sheets fails
+        try {
+            const records = JSON.parse(localStorage.getItem('patientRecords') || '[]');
+            records.push(patientRecord);
+            localStorage.setItem('patientRecords', JSON.stringify(records));
+            showToast('Record saved locally (Google Sheets unavailable)', 'warning');
+            loadPatients();
+        } catch (localError) {
+            showToast('Failed to save record', 'error');
+        }
     }
 }
 
-async function syncToGoogleSheets() {
+async function saveToGoogleSheets(patientRecord) {
+    if (GOOGLE_SHEETS_URL === 'https://script.google.com/macros/s/YOUR_GOOGLE_APPS_SCRIPT_ID/exec') {
+        throw new Error('Google Sheets URL not configured');
+    }
+    
+    const response = await fetch(GOOGLE_SHEETS_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            action: 'savePatient',
+            data: patientRecord
+        })
+    });
+    
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    if (result.status !== 'success') {
+        throw new Error(result.message || 'Failed to save to Google Sheets');
+    }
+    
+    return result;
+}
+
+async function loadPatients() {
+    const tableBody = document.getElementById('patientsTableBody');
+    const noPatients = document.getElementById('noPatients');
+    
     try {
-        showToast('Syncing to Google Sheets...', 'info');
-        
         let records = [];
         
-        if (supabase) {
-            const { data, error } = await supabase
-                .from('patient_records')
-                .select('*')
-                .order('created_at', { ascending: false });
-            
-            if (error) throw error;
-            records = data || [];
-        } else {
+        // Try to load from Google Sheets first
+        try {
+            if (GOOGLE_SHEETS_URL !== 'https://script.google.com/macros/s/YOUR_GOOGLE_APPS_SCRIPT_ID/exec') {
+                records = await loadFromGoogleSheets();
+            }
+        } catch (error) {
+            console.warn('Could not load from Google Sheets, using localStorage:', error);
+        }
+        
+        // Fallback to localStorage if Google Sheets fails
+        if (records.length === 0) {
             records = JSON.parse(localStorage.getItem('patientRecords') || '[]');
         }
         
         if (records.length === 0) {
-            showToast('No patient records to sync', 'warning');
+            tableBody.innerHTML = '';
+            noPatients.classList.remove('hidden');
             return;
         }
         
-        // Prepare data for Google Sheets
-        const sheetsData = records.map(record => ({
-            name: record.fullName || record.full_name,
-            age: record.age,
-            gender: record.gender,
-            weight: record.weight,
-            height: record.height,
-            glucose: record.glucose,
-            triglycerides: record.triglycerides,
-            hdl: record.hdl,
-            bmi: record.bmi,
-            tyg: record.tygIndex || record.tyg_index,
-            tghdl: record.tgHdlRatio || record.tg_hdl_ratio,
-            risk: record.risk_level
-        }));
+        noPatients.classList.add('hidden');
+        tableBody.innerHTML = records.map(record => `
+            <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="text-sm font-medium text-gray-900">${record.fullName}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    ${record.age} / ${record.gender}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    ${record.bmi}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    ${record.tygIndex}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRiskBadgeClass(record.riskLevel)}">
+                        ${record.riskLevel}
+                    </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    ${new Date(record.createdAt).toLocaleDateString()}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button onclick="viewPatient('${record.id}')" class="text-medical-600 hover:text-medical-900 mr-3">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button onclick="exportPatient('${record.id}')" class="text-green-600 hover:text-green-900">
+                        <i class="fas fa-download"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading patients:', error);
+        showToast('Error loading patient records', 'error');
+    }
+}
+
+async function loadFromGoogleSheets() {
+    const response = await fetch(GOOGLE_SHEETS_URL + '?action=getPatients', {
+        method: 'GET'
+    });
+    
+    if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    if (result.status !== 'success') {
+        throw new Error(result.message || 'Failed to load from Google Sheets');
+    }
+    
+    return result.data || [];
+}
+
+async function exportAllToSheets() {
+    try {
+        showToast('Exporting all records to Google Sheets...', 'info');
         
-        // Send to Google Sheets
-        const response = await fetch(GOOGLE_SHEETS_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(sheetsData)
-        });
+        let records = JSON.parse(localStorage.getItem('patientRecords') || '[]');
         
-        if (response.ok) {
-            showToast('Successfully synced to Google Sheets!', 'success');
-        } else {
-            throw new Error('Failed to sync to Google Sheets');
+        if (records.length === 0) {
+            showToast('No patient records to export', 'warning');
+            return;
         }
         
+        for (const record of records) {
+            await saveToGoogleSheets(record);
+        }
+        
+        showToast(`Successfully exported ${records.length} records to Google Sheets!`, 'success');
+        
     } catch (error) {
-        console.error('Error syncing to Google Sheets:', error);
-        showToast('Error syncing to Google Sheets: ' + error.message, 'error');
+        console.error('Error exporting to Google Sheets:', error);
+        showToast('Error exporting to Google Sheets: ' + error.message, 'error');
     }
+}
+
+function getRiskBadgeClass(riskLevel) {
+    switch (riskLevel) {
+        case 'Low Risk':
+            return 'bg-green-100 text-green-800';
+        case 'Moderate Risk':
+            return 'bg-yellow-100 text-yellow-800';
+        case 'High Risk':
+            return 'bg-red-100 text-red-800';
+        default:
+            return 'bg-gray-100 text-gray-800';
+    }
+}
+
+function filterPatients() {
+    const searchTerm = document.getElementById('searchPatients').value.toLowerCase();
+    const rows = document.querySelectorAll('#patientsTableBody tr');
+    
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+}
+
+function clearForm() {
+    document.getElementById('patientForm').reset();
+    document.getElementById('resultsContainer').classList.add('hidden');
+    document.getElementById('gaugeChartsContainer').classList.add('hidden');
+    document.getElementById('noGaugeData').classList.remove('hidden');
+    document.getElementById('noResults').classList.remove('hidden');
 }
 
 async function exportPdfResults() {
@@ -614,9 +736,12 @@ async function exportPdfResults() {
         
         yPos += 15;
         
+        // Results boxes
+        const boxWidth = (pageWidth - 45) / 3;
+        
         // BMI Result Box
         pdf.setFillColor(219, 234, 254);
-        pdf.rect(15, yPos - 5, (pageWidth - 45) / 3, 25, 'F');
+        pdf.rect(15, yPos - 5, boxWidth, 25, 'F');
         pdf.setTextColor(30, 64, 175);
         pdf.setFontSize(12);
         pdf.setFont('helvetica', 'bold');
@@ -625,7 +750,6 @@ async function exportPdfResults() {
         pdf.text(calculations.bmi.toString(), 20, yPos + 15);
         
         // TyG Index Result Box
-        const boxWidth = (pageWidth - 45) / 3;
         pdf.setFillColor(233, 213, 255);
         pdf.rect(15 + boxWidth + 5, yPos - 5, boxWidth, 25, 'F');
         pdf.setTextColor(109, 40, 217);
@@ -674,109 +798,6 @@ async function exportPdfResults() {
         pdf.setFont('helvetica', 'normal');
         pdf.text(riskCategory.description, 20, yPos);
         
-        // Add new page for reference values
-        pdf.addPage();
-        
-        // Reference Values Page
-        pdf.setFillColor(102, 126, 234);
-        pdf.rect(0, 0, pageWidth, 30, 'F');
-        pdf.setTextColor(255, 255, 255);
-        pdf.setFontSize(20);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('REFERENCE VALUES & CLINICAL IMPORTANCE', pageWidth / 2, 20, { align: 'center' });
-        
-        yPos = 50;
-        
-        // Reference Values Section
-        pdf.setTextColor(51, 65, 85);
-        pdf.setFontSize(16);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('REFERENCE VALUES', 20, yPos);
-        
-        yPos += 20;
-        
-        // BMI Reference
-        pdf.setFillColor(219, 234, 254);
-        pdf.rect(15, yPos - 5, pageWidth - 30, 35, 'F');
-        pdf.setTextColor(30, 64, 175);
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('BMI (Body Mass Index)', 20, yPos + 5);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(10);
-        pdf.text('Normal: 18.5–24.9  |  Overweight: 25–29.9  |  Obese: ≥30', 20, yPos + 15);
-        
-        yPos += 45;
-        
-        // TyG Index Reference
-        pdf.setFillColor(233, 213, 255);
-        pdf.rect(15, yPos - 5, pageWidth - 30, 35, 'F');
-        pdf.setTextColor(109, 40, 217);
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('TyG Index (Triglyceride-Glucose Index)', 20, yPos + 5);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(10);
-        pdf.text('Low Risk: < 8.0  |  Moderate Risk: 8.0–8.5  |  High Risk: > 8.5', 20, yPos + 15);
-        
-        yPos += 45;
-        
-        // TG/HDL Reference
-        pdf.setFillColor(254, 215, 170);
-        pdf.rect(15, yPos - 5, pageWidth - 30, 35, 'F');
-        pdf.setTextColor(194, 65, 12);
-        pdf.setFontSize(12);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('TG/HDL Ratio (Triglyceride to HDL Ratio)', 20, yPos + 5);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(10);
-        pdf.text('Ideal: < 3.0  |  Moderate Risk: 3.0–4.5  |  High Risk: > 4.5', 20, yPos + 15);
-        
-        yPos += 55;
-        
-        // Clinical Importance Section
-        pdf.setTextColor(51, 65, 85);
-        pdf.setFontSize(16);
-        pdf.setFont('helvetica', 'bold');
-        pdf.text('CLINICAL IMPORTANCE', 20, yPos);
-        
-        yPos += 15;
-        pdf.setFillColor(239, 246, 255);
-        pdf.rect(15, yPos - 5, pageWidth - 30, 60, 'F');
-        
-        pdf.setFontSize(11);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text('• High BMI increases risk for cardiovascular diseases, diabetes, and metabolic syndrome.', 20, yPos + 10);
-        pdf.text('• Elevated TyG Index is linked with insulin resistance and higher risk of type 2 diabetes.', 20, yPos + 25);
-        pdf.text('• High TG/HDL ratio is associated with atherosclerosis and heart disease.', 20, yPos + 40);
-        
-        // Add visual charts if available
-        const gaugeContainer = document.getElementById('gaugeChartsContainer');
-        if (gaugeContainer && !gaugeContainer.classList.contains('hidden')) {
-            try {
-                const canvas = await html2canvas(gaugeContainer, {
-                    scale: 2,
-                    useCORS: true,
-                    allowTaint: true,
-                    backgroundColor: '#ffffff'
-                });
-                
-                const imgData = canvas.toDataURL('image/png');
-                pdf.addPage();
-                
-                pdf.setFillColor(102, 126, 234);
-                pdf.rect(0, 0, pageWidth, 30, 'F');
-                pdf.setTextColor(255, 255, 255);
-                pdf.setFontSize(20);
-                pdf.setFont('helvetica', 'bold');
-                pdf.text('VISUAL ANALYTICS', pageWidth / 2, 20, { align: 'center' });
-                
-                pdf.addImage(imgData, 'PNG', 10, 40, pageWidth - 20, 150);
-            } catch (error) {
-                console.warn('Could not add charts to PDF:', error);
-            }
-        }
-        
         pdf.save(`${formData.fullName}_metabolic_assessment.pdf`);
         showToast('PDF exported successfully', 'success');
         
@@ -784,114 +805,6 @@ async function exportPdfResults() {
         console.error('Error exporting PDF:', error);
         showToast('Error exporting PDF: ' + error.message, 'error');
     }
-}
-
-async function loadPatients() {
-    const tableBody = document.getElementById('patientsTableBody');
-    const noPatients = document.getElementById('noPatients');
-    
-    try {
-        let records = [];
-        
-        if (supabase) {
-            const { data, error } = await supabase
-                .from('patient_records')
-                .select('*')
-                .order('created_at', { ascending: false });
-            
-            if (error) throw error;
-            records = data || [];
-        } else {
-            // Load from localStorage for demo
-            records = JSON.parse(localStorage.getItem('patientRecords') || '[]');
-        }
-        
-        if (records.length === 0) {
-            tableBody.innerHTML = '';
-            noPatients.classList.remove('hidden');
-            return;
-        }
-        
-        noPatients.classList.add('hidden');
-        tableBody.innerHTML = records.map(record => `
-            <tr class="hover:bg-gray-50">
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm font-medium text-gray-900">${record.fullName || record.full_name}</div>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ${record.age} / ${record.gender}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ${record.bmi}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ${record.tygIndex || record.tyg_index}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRiskBadgeClass(record.risk_level)}">
-                        ${record.risk_level}
-                    </span>
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    ${new Date(record.created_at).toLocaleDateString()}
-                </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button onclick="viewPatient(${record.id})" class="text-medical-600 hover:text-medical-900 mr-3">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button onclick="exportPatient(${record.id})" class="text-green-600 hover:text-green-900">
-                        <i class="fas fa-download"></i>
-                    </button>
-                </td>
-            </tr>
-        `).join('');
-    } catch (error) {
-        console.error('Error loading patients:', error);
-        showToast('Error loading patient records', 'error');
-    }
-}
-
-function getRiskBadgeClass(riskLevel) {
-    switch (riskLevel) {
-        case 'Low Risk':
-            return 'bg-green-100 text-green-800';
-        case 'Moderate Risk':
-            return 'bg-yellow-100 text-yellow-800';
-        case 'High Risk':
-            return 'bg-red-100 text-red-800';
-        default:
-            return 'bg-gray-100 text-gray-800';
-    }
-}
-
-function filterPatients() {
-    const searchTerm = document.getElementById('searchPatients').value.toLowerCase();
-    const rows = document.querySelectorAll('#patientsTableBody tr');
-    
-    rows.forEach(row => {
-        const text = row.textContent.toLowerCase();
-        row.style.display = text.includes(searchTerm) ? '' : 'none';
-    });
-}
-
-function clearForm() {
-    document.getElementById('patientForm').reset();
-    document.getElementById('resultsContainer').classList.add('hidden');
-    document.getElementById('gaugeChartsContainer').classList.add('hidden');
-    document.getElementById('noGaugeData').classList.remove('hidden');
-    document.getElementById('noResults').classList.remove('hidden');
-}
-
-function downloadCSV(content, filename) {
-    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
 }
 
 function showToast(message, type = 'info') {
@@ -930,8 +843,7 @@ function debounce(func, wait) {
 
 // Global functions for patient management
 window.viewPatient = function(id) {
-    // Implementation for viewing patient details
-    showToast('Patient details view - Feature coming soon', 'info');
+    showToast('Patient details view - Feature available in full version', 'info');
 };
 
 window.exportPatient = function(id) {
@@ -939,21 +851,18 @@ window.exportPatient = function(id) {
     const record = records.find(r => r.id === id);
     
     if (record) {
-        // Create a temporary form data object and export as PDF
-        const tempFormData = {
-            fullName: record.fullName,
-            age: record.age,
-            gender: record.gender,
-            weight: record.weight,
-            height: record.height,
-            glucose: record.glucose,
-            triglycerides: record.triglycerides,
-            hdl: record.hdl,
-            hba1c: record.hba1c,
-            diabetes: record.diabetes
-        };
+        // Set form data and export as PDF
+        document.getElementById('fullName').value = record.fullName;
+        document.getElementById('age').value = record.age;
+        document.getElementById('gender').value = record.gender;
+        document.getElementById('weight').value = record.weight;
+        document.getElementById('height').value = record.height;
+        document.getElementById('glucose').value = record.glucose;
+        document.getElementById('triglycerides').value = record.triglycerides;
+        document.getElementById('hdl').value = record.hdl;
+        document.getElementById('hba1c').value = record.hba1c;
+        document.getElementById('diabetes').value = record.diabetes;
         
-        // Use the existing PDF export function
         exportPdfResults();
     }
 };
