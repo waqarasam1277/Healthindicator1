@@ -1,10 +1,9 @@
 // Import libraries
-import jsPDF from 'https://cdn.skypack.dev/jspdf';
-import html2canvas from 'https://cdn.skypack.dev/html2canvas';
+// Libraries will be loaded via CDN in HTML
 
 // Configuration
 const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY';
-const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzLqYSWsak4lqt3tntGCIXFnWFvJke9m7c_yOhZ45iKZbj8SSkiAK-WglDkFxRxY-I1/exec';
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwEvFs88l76BoRZQByL4PUaMgFrgwYu8BvIilHKhsmcJwgo0tsmUqCk-k_alVvaC-ZX/exec';
 
 // Current user for demo purposes
 let currentUser = { email: 'demo@healthcare.com', id: 'demo-user' };
@@ -150,7 +149,10 @@ function categorizeRisk(tygIndex) {
 function displayResults(calculations, riskCategory) {
     // Show results container
     document.getElementById('resultsContainer').classList.remove('hidden');
-    document.getElementById('noResults').classList.add('hidden');
+    const noResults = document.getElementById('noResults');
+    if (noResults) {
+        noResults.classList.add('hidden');
+    }
     
     // Update calculated values
     document.getElementById('bmiValue').textContent = calculations.bmi;
@@ -162,12 +164,21 @@ function displayResults(calculations, riskCategory) {
     riskElement.className = `p-4 rounded-lg mb-6 text-center border ${riskCategory.color}`;
     document.getElementById('riskLevel').textContent = riskCategory.level;
     document.getElementById('riskDescription').textContent = riskCategory.description;
+    
+    // Show reference values section
+    const referenceSection = document.getElementById('referenceValuesSection');
+    if (referenceSection) {
+        referenceSection.classList.remove('hidden');
+    }
 }
 
 function createAdvancedGauges(calculations, riskCategory) {
     // Show gauge container and hide no data message
     document.getElementById('gaugeChartsContainer').classList.remove('hidden');
-    document.getElementById('noGaugeData').classList.add('hidden');
+    const noGaugeData = document.getElementById('noGaugeData');
+    if (noGaugeData) {
+        noGaugeData.classList.add('hidden');
+    }
     
     // Update gauge values
     document.getElementById('bmiGaugeValue').textContent = calculations.bmi;
@@ -201,6 +212,11 @@ function createAdvancedGauges(calculations, riskCategory) {
 
 function createAdvancedGauge(canvasId, value, ranges, maxValue) {
     const canvas = document.getElementById(canvasId);
+    if (!canvas) {
+        console.warn(`Canvas element ${canvasId} not found`);
+        return;
+    }
+    
     const ctx = canvas.getContext('2d');
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -259,6 +275,11 @@ function createAdvancedGauge(canvasId, value, ranges, maxValue) {
 
 function createRiskGauge(canvasId, riskCategory) {
     const canvas = document.getElementById(canvasId);
+    if (!canvas) {
+        console.warn(`Canvas element ${canvasId} not found`);
+        return;
+    }
+    
     const ctx = canvas.getContext('2d');
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -505,7 +526,7 @@ async function saveResults() {
 }
 
 async function saveToGoogleSheets(patientRecord) {
-    if (GOOGLE_SHEETS_URL === 'https://script.google.com/macros/s/AKfycbxEzSLIaJ8SlCi2q229UkzSfVtlgd6foqvVi9n_IkEAMvdQ-qv37-NcqBjxEkWVdT9A/exec') {
+    if (GOOGLE_SHEETS_URL === 'https://script.google.com/macros/s/YOUR_GOOGLE_APPS_SCRIPT_ID/exec') {
         throw new Error('Google Sheets URL not configured');
     }
     
@@ -599,8 +620,14 @@ async function loadPatients() {
 }
 
 async function loadFromGoogleSheets() {
-    const response = await fetch(GOOGLE_SHEETS_URL + '?action=getPatients', {
-        method: 'GET'
+    const url = new URL(GOOGLE_SHEETS_URL);
+    url.searchParams.append('action', 'getPatients');
+    
+    const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        }
     });
     
     if (!response.ok) {
@@ -665,16 +692,42 @@ function clearForm() {
     document.getElementById('patientForm').reset();
     document.getElementById('resultsContainer').classList.add('hidden');
     document.getElementById('gaugeChartsContainer').classList.add('hidden');
-    document.getElementById('noGaugeData').classList.remove('hidden');
-    document.getElementById('noResults').classList.remove('hidden');
+    
+    const noGaugeData = document.getElementById('noGaugeData');
+    const noResults = document.getElementById('noResults');
+    
+    if (noGaugeData) {
+        noGaugeData.classList.remove('hidden');
+    }
+    if (noResults) {
+        noResults.classList.remove('hidden');
+    }
+    
+    // Clear AI recommendations
+    const aiRecommendations = document.getElementById('aiRecommendations');
+    if (aiRecommendations) {
+        aiRecommendations.innerHTML = '<div class="text-gray-500">AI recommendations will appear after calculation</div>';
+    }
 }
 
 async function exportPdfResults() {
+    // Check if jsPDF is available
+    if (typeof window.jsPDF === 'undefined') {
+        showToast('PDF library not loaded. Please refresh the page.', 'error');
+        return;
+    }
+    
     const formData = getFormData();
+    if (!validateFormData(formData)) {
+        showToast('Please fill in all required fields before exporting', 'error');
+        return;
+    }
+    
     const calculations = calculateMetrics(formData);
     const riskCategory = categorizeRisk(calculations.tygIndex);
     
     try {
+        const { jsPDF } = window.jsPDF;
         const pdf = new jsPDF('p', 'mm', 'a4');
         const pageWidth = pdf.internal.pageSize.getWidth();
         const pageHeight = pdf.internal.pageSize.getHeight();
