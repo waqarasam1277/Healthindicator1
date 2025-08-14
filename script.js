@@ -4,7 +4,7 @@ import html2canvas from 'https://cdn.skypack.dev/html2canvas';
 
 // Configuration
 const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY';
-const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/YOUR_GOOGLE_APPS_SCRIPT_ID/exec';
+const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzLqYSWsak4lqt3tntGCIXFnWFvJke9m7c_yOhZ45iKZbj8SSkiAK-WglDkFxRxY-I1/exec';
 
 // Current user for demo purposes
 let currentUser = { email: 'demo@healthcare.com', id: 'demo-user' };
