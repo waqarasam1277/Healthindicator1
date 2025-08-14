@@ -2,7 +2,7 @@
 // Libraries will be loaded via CDN in HTML
 
 // Configuration
-const OPENAI_API_KEY = 'YOUR_OPENAI_API_KEY';
+const OPENAI_API_KEY = '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';
 const GOOGLE_SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwEvFs88l76BoRZQByL4PUaMgFrgwYu8BvIilHKhsmcJwgo0tsmUqCk-k_alVvaC-ZX/exec';
 
 // Current user for demo purposes
@@ -344,7 +344,7 @@ async function generateAIRecommendations(formData, calculations, riskCategory) {
     try {
         let recommendations;
         
-        if (OPENAI_API_KEY !== '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') {
+        if (OPENAI_API_KEY && OPENAI_API_KEY !== 'YOUR_OPENAI_API_KEY') {
             // Use OpenAI API
             recommendations = await getOpenAIRecommendations(formData, calculations, riskCategory);
         } else {
