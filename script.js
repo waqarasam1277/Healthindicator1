@@ -323,7 +323,7 @@ async function generateAIRecommendations(formData, calculations, riskCategory) {
     try {
         let recommendations;
         
-        if (OPENAI_API_KEY !== 'YOUR_OPENAI_API_KEY') {
+        if (OPENAI_API_KEY !== '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') {
             // Use OpenAI API
             recommendations = await getOpenAIRecommendations(formData, calculations, riskCategory);
         } else {
@@ -505,7 +505,7 @@ async function saveResults() {
 }
 
 async function saveToGoogleSheets(patientRecord) {
-    if (GOOGLE_SHEETS_URL === 'https://script.google.com/macros/s/YOUR_GOOGLE_APPS_SCRIPT_ID/exec') {
+    if (GOOGLE_SHEETS_URL === 'https://script.google.com/macros/s/AKfycbxEzSLIaJ8SlCi2q229UkzSfVtlgd6foqvVi9n_IkEAMvdQ-qv37-NcqBjxEkWVdT9A/exec') {
         throw new Error('Google Sheets URL not configured');
     }
     
