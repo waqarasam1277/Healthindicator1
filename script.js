@@ -896,7 +896,37 @@ function debounce(func, wait) {
 
 // Global functions for patient management
 window.viewPatient = function(id) {
-    showToast('Patient details view - Feature available in full version', 'info');
+    const records = JSON.parse(localStorage.getItem('patientRecords') || '[]');
+    const record = records.find(r => r.id === id);
+    
+    if (record) {
+        // Populate form with patient data
+        document.getElementById('fullName').value = record.fullName;
+        document.getElementById('age').value = record.age;
+        document.getElementById('gender').value = record.gender;
+        document.getElementById('weight').value = record.weight;
+        document.getElementById('height').value = record.height;
+        document.getElementById('glucose').value = record.glucose;
+        document.getElementById('triglycerides').value = record.triglycerides;
+        document.getElementById('hdl').value = record.hdl;
+        document.getElementById('hba1c').value = record.hba1c;
+        document.getElementById('diabetes').value = record.diabetes;
+        
+        // Trigger calculation
+        const formData = getFormData();
+        const calculations = calculateMetrics(formData);
+        const riskCategory = categorizeRisk(calculations.tygIndex);
+        
+        displayResults(calculations, riskCategory);
+        createAdvancedGauges(calculations, riskCategory);
+        
+        // Switch to calculator tab
+        showSection('calculator');
+        
+        showToast('Patient data loaded successfully', 'success');
+    } else {
+        showToast('Patient record not found', 'error');
+    }
 };
 
 window.exportPatient = function(id) {
